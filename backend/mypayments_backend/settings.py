@@ -3,12 +3,14 @@ import os
 from pathlib import Path
 from datetime import timedelta
 
+import dj_database_url
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security settings
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
-    "django-insecure-local-development-only"
+    "django-insecure-local-development-only",
 )
 
 DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
@@ -40,14 +42,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
-    # Third-party applications
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
-
-    # Local applications
     "api",
 ]
 
@@ -66,7 +64,6 @@ MIDDLEWARE = [
 
 # URL and WSGI configuration
 ROOT_URLCONF = "mypayments_backend.urls"
-
 WSGI_APPLICATION = "mypayments_backend.wsgi.application"
 
 # Templates
@@ -86,13 +83,14 @@ TEMPLATES = [
 ]
 
 # Database
-# SQLite is suitable for local development.
-# Configure PostgreSQL before storing real payment or customer data.
+# Use PostgreSQL on Render when DATABASE_URL is set.
+# Use SQLite locally when DATABASE_URL is not set.
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 # Custom user model
