@@ -37,7 +37,7 @@ const Logo = ({ size = 'medium' }) => {
         </span>
         {!isSmall && (
           <span style={{ fontSize: '0.65rem', fontWeight: 600, color: '#06b6d4', letterSpacing: '1px', textTransform: 'uppercase' }}>
-            Secure Pay
+            Hemanth's Secure Pay
           </span>
         )}
       </div>

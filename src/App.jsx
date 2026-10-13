@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
+import { ACCESS_TOKEN, REFRESH_TOKEN, USER_DATA } from './api/authConstants';
+import { BalanceProvider } from './context/BalanceContext';
+
 import Login from './pages/Login/Login';
 import Register from './pages/Register/Register';
 import Home from './pages/Home/Home';
@@ -11,8 +14,8 @@ import AddBankAccount from './pages/AddBankAccount/AddBankAccount';
 import CheckBalance from './pages/CheckBalance/CheckBalance';
 import SendMoney from './pages/SendMoney/SendMoney';
 import Contacts from './pages/Contacts/Contacts';
-import { BalanceProvider } from './context/BalanceContext';
 
+// Layout wrapper for authenticated routes
 const AppLayout = ({ children, user, onLogout }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative' }}>
@@ -24,14 +27,17 @@ const AppLayout = ({ children, user, onLogout }) => {
 };
 
 const App = () => {
+  // Initialise user from stored data
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('mypayments_user');
+    const saved = localStorage.getItem(USER_DATA);
     return saved ? JSON.parse(saved) : null;
   });
 
+  // Logout clears tokens and user state
   const handleLogout = () => {
-    localStorage.removeItem('mypayments_token');
-    localStorage.removeItem('mypayments_user');
+    localStorage.removeItem(ACCESS_TOKEN);
+    localStorage.removeItem(REFRESH_TOKEN);
+    localStorage.removeItem(USER_DATA);
     setUser(null);
     window.location.href = '/login';
   };
@@ -40,7 +46,7 @@ const App = () => {
     <BalanceProvider>
       <Router>
         <Routes>
-          <Route path="/login" element={<Login onLoginSuccess={(u) => setUser(u)} />} />
+          <Route path="/login" element={<Login onLoginSuccess={setUser} />} />
           <Route path="/register" element={<Register />} />
           <Route
             path="/"

@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Phone, Lock, User, AlertCircle, ArrowRight, CheckCircle2, KeyRound, X } from 'lucide-react';
 import Logo from '../../components/Logo';
 import api from '../../api/axios';
+import { ACCESS_TOKEN, REFRESH_TOKEN, USER_DATA } from '../../api/authConstants';
 
 const Login = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
@@ -42,28 +43,100 @@ const Login = ({ onLoginSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!formData.mobile_number || !formData.password) {
-      setErrorMsg("Invalid mobile number or password");
+      setErrorMsg("Please enter mobile number and password.");
       return;
     }
 
     setLoading(true);
-    setErrorMsg('');
+    setErrorMsg("");
 
     try {
-      const res = await api.post('login/', formData);
-      if (res.data.access) {
-        localStorage.setItem('mypayments_token', res.data.access);
-        localStorage.setItem('mypayments_user', JSON.stringify(res.data.user));
-        if (onLoginSuccess) onLoginSuccess(res.data.user);
-        navigate('/');
+      const res = await api.post("login/", {
+        mobile_number: formData.mobile_number.trim(),
+        password: formData.password
+      });
+
+      // Case G: Backend works (HTTP 200 OK), verify payload integrity
+      if (!res.data || !res.data.access || !res.data.user) {
+        setErrorMsg(
+          "Frontend Error (Case G - HTTP 200): Server responded successfully, but returned incomplete auth payload."
+        );
+        return;
       }
+
+      localStorage.setItem(ACCESS_TOKEN, res.data.access);
+      localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
+      localStorage.setItem(USER_DATA, JSON.stringify(res.data.user));
+
+      if (onLoginSuccess) {
+        onLoginSuccess(res.data.user);
+      }
+
+      navigate("/", { replace: true });
+
     } catch (err) {
-      if (err.response && err.response.data && err.response.data.detail) {
-        setErrorMsg(err.response.data.detail);
+      console.error("Login error:", err);
+
+      if (!err.response) {
+        // Case A: No HTTP response = network/CORS/server connection issue
+        setErrorMsg(
+          "Network / CORS / Connection Error (Case A): Cannot connect to backend server. Please verify server is running and CORS is enabled."
+        );
       } else {
-        setErrorMsg("Invalid mobile number or password");
+        const { status, data } = err.response;
+
+        switch (status) {
+          case 400:
+            // Case B: HTTP 400 = validation/credentials issue
+            if (data?.errors) {
+              const firstKey = Object.keys(data.errors)[0];
+              const firstErr = Array.isArray(data.errors[firstKey])
+                ? data.errors[firstKey][0]
+                : data.errors[firstKey];
+              setErrorMsg(`Validation Error (Case B - HTTP 400): ${firstKey} - ${firstErr}`);
+            } else {
+              setErrorMsg(data?.detail || "Validation Error (Case B - HTTP 400): Invalid credentials format or payload.");
+            }
+            break;
+
+          case 401:
+            // Case C: HTTP 401 = authentication issue
+            setErrorMsg(
+              data?.detail || "Authentication Failed (Case C - HTTP 401): Invalid mobile number or password."
+            );
+            break;
+
+          case 404:
+            // Case D: HTTP 404 = wrong URL
+            setErrorMsg(
+              data?.detail || "Endpoint Not Found (Case D - HTTP 404): Requested URL '/api/login/' does not exist."
+            );
+            break;
+
+          case 405:
+            // Case E: HTTP 405 = wrong HTTP method
+            setErrorMsg(
+              data?.detail || "Method Not Allowed (Case E - HTTP 405): HTTP POST is not allowed for this route."
+            );
+            break;
+
+          case 500:
+            // Case F: HTTP 500 = Django backend exception
+            setErrorMsg(
+              data?.detail || data?.error || "Django Backend Error (Case F - HTTP 500): Internal server exception occurred."
+            );
+            break;
+
+          default:
+            setErrorMsg(
+              data?.detail || `HTTP Error ${status}: Login attempt failed.`
+            );
+            break;
+        }
       }
+
     } finally {
       setLoading(false);
     }
